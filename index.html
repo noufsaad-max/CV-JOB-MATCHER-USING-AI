@@ -135,8 +135,18 @@
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('result').innerHTML = 
-                    `<div class="success">Similarity Score: ${data.score}%</div>`;
+                const result = document.getElementById('result');
+                if (data.error) {
+                    result.innerHTML = '<div class="error"></div>';
+                    result.firstChild.textContent = data.error;
+                } else {
+                    result.innerHTML =
+                        `<div class="success">Similarity Score: ${data.score}%</div>`;
+                }
+            })
+            .catch(() => {
+                document.getElementById('result').innerHTML =
+                    '<div class="error">Could not reach the server. Please try again.</div>';
             });
         }
     </script>
