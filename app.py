@@ -101,32 +101,39 @@ def compare_files():
     file2_path = os.path.join(app.config['UPLOAD_FOLDER'], filename2)
     
     file1.save(file1_path)
-    file2.save(file2_path)    
+    file2.save(file2_path)
     try:
         text1 = extract_text_from_pdf(file1_path)
         text2 = extract_text_from_pdf(file2_path)
-       
-        if len(text1) >0 and len(text2)>0:
-               # Calculate score - ensure it's always a float
-            score = calculate_similarity(text1, text2)            
-            
-            if score is None:
-                raise ValueError("Similarity calculation returned None")
-                    
-                
-            # Clean up
-            os.remove(file1_path)
-            os.remove(file2_path)
-                
+
+        # Scanned/image-only PDFs have no extractable text. Previously this
+        # path fell through and returned None, which Flask turns into an
+        # opaque 500 error.
+        if not text1.strip() or not text2.strip():
             return jsonify({
-                    'score': round(score, 2) # Round to 2 decimal places                  
-                }),200
-           
-    except Exception as e:
-            return jsonify({
-                'error': str(e),
+                'error': 'Could not read any text from one of the PDFs. '
+                         'Scanned or image-only PDFs are not supported.',
                 'status': 'error'
-            }), 500
+            }), 400
+
+        score = calculate_similarity(text1, text2)
+        if score is None:
+            raise ValueError("Similarity calculation returned None")
+
+        return jsonify({
+            'score': round(float(score), 2)  # Round to 2 decimal places
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'status': 'error'
+        }), 500
+    finally:
+        # Always remove the uploaded files, including on errors.
+        for path in (file1_path, file2_path):
+            if os.path.exists(path):
+                os.remove(path)
 
 if __name__ == '__main__':
     app.run(debug=True)
